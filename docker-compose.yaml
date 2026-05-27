@@ -10,13 +10,11 @@ x-airflow-common:
     AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'true'
     AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
     AIRFLOW__API__AUTH_BACKENDS: 'airflow.api.auth.backend.basic_auth,airflow.api.auth.backend.session'
-    AIRFLOW__LOGGING__BASE_LOG_FOLDER: /opt/airflow/logs
-    AIRFLOW__SCHEDULER__CHILD_PROCESS_LOG_DIRECTORY: /opt/airflow/logs/scheduler
-    _PIP_ADDITIONAL_REQUIREMENTS: 'requests pandas mysql-connector-python'
+    _PIP_ADDITIONAL_REQUIREMENTS: 'requests pandas mysql-connector-python python-dotenv'
   volumes:
-    - /d/project/API_airflow/dags:/opt/airflow/dags
-    - /d/project/API_airflow/logs:/opt/airflow/logs
-    - /d/project/API_airflow/plugins:/opt/airflow/plugins
+    - airflow-dags:/opt/airflow/dags
+    - airflow-logs:/opt/airflow/logs
+    - airflow-plugins:/opt/airflow/plugins
   user: "50000:0"
   depends_on:
     postgres:
@@ -62,3 +60,6 @@ services:
 
 volumes:
   postgres_data:
+  airflow-dags:
+  airflow-logs:
+  airflow-plugins:
