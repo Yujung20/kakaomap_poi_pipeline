@@ -77,10 +77,12 @@ I also aimed to implement a pipeline structure similar to real production enviro
 ```text
 API_airflow/
 ├── dags/
-│   └── kakao_poi_dag.py
+│   ├── kakao_poi_dag.py
+│   └── kakao_pharmacy_dag.py
 ├── logs/
 ├── plugins/
 ├── docker-compose.yaml
+├── env.example
 └── .gitignore
 ```
 
@@ -99,6 +101,26 @@ API_airflow/
 - Authentication using Kakao REST API key
 - Keyword-based POI data collection (cafes, restaurants, hospitals, pharmacies)
 - Pagination handling
+
+### 서울 전체 약국 데이터 수집 (행정동 단위)
+
+- 서울 전체 약국 수 확인 결과 총 5,150개
+- 카카오 API 정책상 1회 호출당 최대 15건, 최대 3페이지(45건)까지 수집 가능
+- 서울 424개 행정동 단위로 순회하여 최대 19,080건 수집 시도
+- 중복 제거 후 최종 4,437건 적재 완료 (목표 대비 약 86% 수집률)
+- 미수집 약 700건 원인 분석: 행정동 주소 오표기 문제 확인<br>
+  (도로명 주소는 오표기 없이 정상 수집되나, 행정동 주소 기반 검색 시 일부 누락 발생)
+- Upsert 방식으로 매주 월요일 새벽 3시 자동 갱신
+
+&nbsp;&nbsp;&nbsp;**Eng ver.**
+
+- Confirmed total of 5,150 pharmacies in Seoul
+- Kakao API allows maximum 15 results per call, up to 3 pages (45 results) per query
+- Collected data by iterating through 424 administrative districts (dong) in Seoul, attempting up to 19,080 records
+- Final 4,437 records loaded after deduplication (approximately 86% collection rate)
+- Analyzed ~700 missing records: identified incorrect administrative district name encoding as root cause<br>
+  (Road name addresses were collected without errors, while administrative district-based searches caused partial omissions)
+- Automatically updated every Monday at 3 AM using Upsert strategy
 
 ### Pandas 기반 데이터 전처리
 
@@ -128,13 +150,15 @@ API_airflow/
 
 - PythonOperator 기반 Task 구성
 - XCom 기반 Task 간 데이터 전달
-- 매일 새벽 2시 자동 실행 스케줄 설정
+- kakao_poi_pipeline: 매일 새벽 2시 자동 실행
+- kakao_pharmacy_pipeline: 매주 월요일 새벽 3시 자동 실행
 
 &nbsp;&nbsp;&nbsp;**Eng ver.**
 
 - Task configuration using PythonOperator
 - Inter-task data passing using XCom
-- Scheduled automatic execution at 2 AM daily
+- kakao_poi_pipeline: Scheduled automatic execution at 2 AM daily
+- kakao_pharmacy_pipeline: Scheduled automatic execution at 3 AM every Monday
 
 ### Docker 기반 Airflow 환경 구성
 
@@ -153,13 +177,17 @@ API_airflow/
 ## ▶️ How to Run
 
 ```bash
-# 1. Airflow 초기화 (최초 1회)
+# 1. 환경변수 설정
+cp env.example .env
+# .env 파일에 KAKAO_API_KEY, MYSQL_PASSWORD 입력
+
+# 2. Airflow 초기화 (최초 1회)
 docker-compose up airflow-init
 
-# 2. Airflow 실행
+# 3. Airflow 실행
 docker-compose up airflow-scheduler airflow-webserver
 
-# 3. Airflow UI 접속
+# 4. Airflow UI 접속
 # http://localhost:8080
 # ID: admin / PW: admin
 ```
@@ -169,6 +197,8 @@ docker-compose up airflow-scheduler airflow-webserver
 ## 📖 What I Learned
 
 - 카카오 REST API 연동 및 데이터 수집 흐름 이해
+- API 호출 제한 정책을 고려한 수집 전략 설계 경험
+- 행정동 단위 데이터 수집 시 주소 오표기로 인한 누락 문제 분석 경험
 - Pandas 기반 데이터 전처리 및 재구조화 경험
 - MySQL 파이프라인 설계 및 Upsert 처리 경험
 - Apache Airflow DAG 구조 및 Task 의존성 이해
@@ -178,6 +208,8 @@ docker-compose up airflow-scheduler airflow-webserver
 **Eng ver.**
 
 - Understanding Kakao REST API integration and data collection workflows
+- Experience designing data collection strategies considering API rate limits
+- Experience analyzing data omission caused by incorrect administrative district name encoding
 - Experience with Pandas-based data preprocessing and restructuring
 - Experience designing MySQL pipelines and handling Upsert operations
 - Understanding Apache Airflow DAG structure and task dependencies
